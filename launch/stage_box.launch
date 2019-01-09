@@ -1,0 +1,26 @@
+<launch>
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find sipr_lab4_template)/worlds/box.png 0.001" />
+
+  
+  <node pkg="tf" type="static_transform_publisher" name="map_marker_link"
+      args="0 0 0 0 0 0 map ar_marker_0 10" />
+
+  <node pkg="tf" type="static_transform_publisher" name="map_odom_link"
+      args="0 0 0 0 0 0 ar_marker_0 odom 10" />
+
+  <node pkg="tf" type="static_transform_publisher" name="robot_10_link"
+      args="0 0 0 0 0 0 base_link robot_10 10" />
+
+
+  <node pkg="stage_ros" type="stageros" name="stageros" args="$(find sipr_lab4_template)/worlds/box.world" respawn="false" >
+    <param name="base_watchdog_timeout" value="0.2"/>
+    <remap from="/cmd_vel" to="/maor_driver/robot_10/cmd_vel" />
+  </node>
+
+
+
+  <!--include file="$(find sipr_lab4_template)/launch/rviz.launch" /-->
+
+
+</launch>
