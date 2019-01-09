@@ -1,5 +1,7 @@
 <launch>
 
+  <param name ="/use_sim_time" value="true"/>
+
   <node name="map_server" pkg="map_server" type="map_server" args="$(find sipr_lab4_template)/worlds/box.png 0.001" />
 
   
