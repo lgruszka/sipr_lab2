@@ -20,7 +20,7 @@
 
 
 
-  <!--include file="$(find sipr_lab4_template)/launch/rviz.launch" /-->
+  <include file="$(find sipr_lab4_template)/launch/rviz.launch" />
 
 
 </launch>
