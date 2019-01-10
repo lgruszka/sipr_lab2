@@ -12,8 +12,8 @@ Przygotowanie przestrzeni roboczej:
 ```
 source /opt/ros/indigo/setup.bash
 cd ~
-mkdir -p sipr/sipr_lab3_ws/src
-cd sipr/sipr_lab3_ws/src
+mkdir -p sipr/sipr_lab4_ws/src
+cd sipr/sipr_lab4_ws/src
 catkin_init_workspace
 git clone https://bitbucket.org/rrgwut/swrm_ros.git
 git clone https://bitbucket.org/maciej_przybylski/sipr_lab3_template.git
