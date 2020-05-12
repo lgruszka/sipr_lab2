@@ -1,5 +1,5 @@
 
-#include "sipr_lab4_template/RobotController.h"
+#include "sipr_lab2/RobotController.h"
 
 #include <cmath>
 
@@ -21,7 +21,30 @@ double sgn(double v)
 }
 
 RobotController::RobotController(Config const& cfg) : nh_("~"), cfg_(cfg) 
-{    
+{
+    joint_state_msg_.header.frame_id = "base_link";
+    joint_state_msg_.name.resize(2);
+    joint_state_msg_.name[0] = "base_left_wheel_joint";
+    joint_state_msg_.name[1] = "base_right_wheel_joint";
+
+    joint_state_msg_.position.resize(2);
+    joint_state_msg_.position[0] = 0;
+    joint_state_msg_.position[1] = 0;
+
+    joint_state_msg_.velocity.resize(2);
+    joint_state_msg_.velocity[0] = 0;
+    joint_state_msg_.velocity[1] = 0;
+
+    cfg_.r = 0.09;
+    cfg_.b = 0.316;
+
+//    cfg_.k1 = ?;
+//    cfg_.k2 = ?;
+//    cfg_.k3 = ?;
+//
+//    cfg_.ksx = ?;
+//    cfg_.s_period = ?;
+
     computePathTraversalTime();
     
     controller_state_ = ControllerState::Ready;
@@ -30,15 +53,13 @@ RobotController::RobotController(Config const& cfg) : nh_("~"), cfg_(cfg)
     sub_goal_pose_ = nh_.subscribe(cfg_.robot_namespace+"/goal", 1,
             &RobotController::goalPoseCallback, this);
     
-    sub_left_sonar_ = nh_.subscribe(cfg_.robot_namespace+"/range_left", 1,
-            &RobotController::leftSonarCallback, this);
+    sub_laser_scan_ = nh_.subscribe(cfg_.robot_namespace+"/base_scan", 1,
+            &RobotController::laserScanCallback, this);
 
-    sub_right_sonar_ = nh_.subscribe(cfg_.robot_namespace+"/range_right", 1,
-            &RobotController::rightSonarCallback, this);
-    
     pub_cmd_vel_ = nh_.advertise<geometry_msgs::Twist>(cfg_.robot_namespace+"/cmd_vel", 1);
     pub_path_ = nh_.advertise<nav_msgs::Path>(cfg_.robot_namespace+"/path", 1);
     pub_next_pose_ = nh_.advertise<geometry_msgs::PoseStamped>(cfg_.robot_namespace+"/next_pose", 1);
+    pub_joint_state_ = nh_.advertise<sensor_msgs::JointState>(cfg_.robot_namespace+"/joint_states", 1);
 }
 
 RobotController::~RobotController() 
@@ -74,15 +95,9 @@ geometry_msgs::Pose2D RobotController::getRobotGlobalPose(ros::Time time_now)
     return pose;
 }
 
-
-void RobotController::leftSonarCallback(sensor_msgs::Range const& range_msg)
-{
-    left_sonar_ = range_msg;
-}
-    
-void RobotController::rightSonarCallback(sensor_msgs::Range const& range_msg)
-{
-    right_sonar_ = range_msg;
+void RobotController::laserScanCallback(sensor_msgs::LaserScan const& laser_msg)
+{ 
+    laser_msg_ = laser_msg;
 }
 
 void RobotController::goalPoseCallback(geometry_msgs::PoseStamped const& goal_pose_msg)
@@ -272,13 +287,48 @@ void RobotController::control()
             ROS_INFO("Robot controller state: %d", int(controller_state_));
         }
     }
-    
+
     geometry_msgs::Twist safe_cmd_vel = collisionAvoidance(cmd_vel); 
-        
+
+    publishJointState(safe_cmd_vel);
+
     pub_cmd_vel_.publish(safe_cmd_vel);
     
 }
 
+// 2. Obliczenie prędkości kół
+void RobotController::publishJointState(geometry_msgs::Twist cmd_vel)
+{
+    double left_wheel_angular_velocity = 0.0;
+    double right_wheel_angular_velocity = 0.0;
+
+    // left_wheel_angular_velocity = ?? ; // rad/s
+    // right_wheel_angular_velocity = ?? ; // rad/s
+
+    joint_state_msg_.velocity[0] = left_wheel_angular_velocity;
+    joint_state_msg_.velocity[1] = right_wheel_angular_velocity;
+
+    joint_state_msg_.position[0] += left_wheel_angular_velocity * cfg_.time_step;
+    joint_state_msg_.position[1] += right_wheel_angular_velocity * cfg_.time_step;
+        
+    pub_joint_state_.publish(joint_state_msg_);
+}
+
+// 3. Implementacja algorytmu śledzenia trajektorii
+geometry_msgs::Twist RobotController::pathTrackingControl(
+    geometry_msgs::Pose2D current_pose, 
+    geometry_msgs::Pose2D target_pose, 
+    geometry_msgs::Twist target_vel)
+{   
+    geometry_msgs::Twist cmd_vel;
+
+//    cmd_vel.linear.x = ?;
+//    cmd_vel.angular.z = ?;
+
+    return cmd_vel;
+}
+
+// 4. Implementacja algorytmu stabilizacji w punkcie
 geometry_msgs::Twist RobotController::positionApproachingControl(
         geometry_msgs::Pose2D current_pose, 
         geometry_msgs::Pose2D target_pose,
@@ -288,31 +338,27 @@ geometry_msgs::Twist RobotController::positionApproachingControl(
     
     geometry_msgs::Twist starget_control;
     
-//    starget_control.linear.x = ?;    
-//    starget_control.angular.z = ?;
+//    starget_control.linear.x = ?;
 
     cmd_vel = pathTrackingControl(current_pose, target_pose, starget_control);
     
     return cmd_vel;
 }
-    
-geometry_msgs::Twist RobotController::pathTrackingControl(
-    geometry_msgs::Pose2D current_pose, 
-    geometry_msgs::Pose2D target_pose, 
-    geometry_msgs::Twist target_vel)
-{   
-    geometry_msgs::Twist cmd_vel;
-        
-//    cmd_vel.linear.x = ?;    
-//    cmd_vel.angular.z = ?;
-    
-    
-    return cmd_vel;
-}
-        
+
+// 5. Implementacja algorytmu unikania kolizji
 geometry_msgs::Twist RobotController::collisionAvoidance(geometry_msgs::Twist cmd_vel)
 {
     geometry_msgs::Twist safe_cmd_vel = cmd_vel;
-    
+
+    for(int i=0; i<int(laser_msg_.ranges.size()); i++)
+    {
+        //  Ograniczyć prędkość jeżeli spełniony jest warunek
+        // if(laser_msg_.ranges[i] < ??)
+        // {
+        //     safe_cmd_vel.linear.x = ?;
+        //     safe_cmd_vel.angular.z = ?;
+        // }
+    }
+
     return safe_cmd_vel;
 }

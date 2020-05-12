@@ -22,7 +22,8 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Point.h>
 
-#include <sensor_msgs/Range.h>
+#include <sensor_msgs/LaserScan.h>
+#include <sensor_msgs/JointState.h>
 #include <nav_msgs/Path.h>
 
 class RobotController 
@@ -33,7 +34,11 @@ public:
     {
         std::string robot_namespace;
         std::string robot_frame_id;
-        std::string globale_frame_id;        
+        std::string globale_frame_id;
+
+        double r; /// promień koła
+        double b; /// odstęp między kołami
+
         double time_step; /// seconds
         
         double k1, k2, k3;
@@ -67,18 +72,17 @@ private:
     ros::NodeHandle nh_;
     tf::TransformListener tf_;
     
-    ros::Subscriber sub_goal_pose_;
-    
-    ros::Subscriber sub_left_sonar_;
-    ros::Subscriber sub_right_sonar_;
+    ros::Subscriber sub_goal_pose_;    
+    ros::Subscriber sub_laser_scan_;
         
     ros::Publisher pub_cmd_vel_;    
     ros::Publisher pub_path_;     
     ros::Publisher pub_next_pose_;  
+    ros::Publisher pub_joint_state_;  
     
-    sensor_msgs::Range left_sonar_;
-    sensor_msgs::Range right_sonar_;
+    sensor_msgs::LaserScan laser_msg_;
     geometry_msgs::Pose2D goal_pose_;
+    sensor_msgs::JointState joint_state_msg_;
         
     double path_traversal_time;
     ros::Time path_tracking_start_time;
@@ -86,9 +90,9 @@ private:
     void computePathTraversalTime();
     void publishPathMsg();
     void publishNextPoseMsg(geometry_msgs::Pose2D pose_2d);
+    void publishJointState(geometry_msgs::Twist cmd_vel);
     
-    void leftSonarCallback(sensor_msgs::Range const& range_msg);
-    void rightSonarCallback(sensor_msgs::Range const& range_msg);
+    void laserScanCallback(sensor_msgs::LaserScan const& laser_msg);
     void goalPoseCallback(geometry_msgs::PoseStamped const& goal_pose_msg);
     
     geometry_msgs::Pose2D getRobotGlobalPose(ros::Time time);
@@ -105,15 +109,15 @@ private:
         geometry_msgs::Pose2D target_pose);    
     bool pathTrackingTimeout(ros::Time time);
     
-    geometry_msgs::Twist positionApproachingControl(
-        geometry_msgs::Pose2D current_pose, 
-        geometry_msgs::Pose2D goal_pose,
-        ros::Time time);
-    
     geometry_msgs::Twist pathTrackingControl(
         geometry_msgs::Pose2D current_pose, 
         geometry_msgs::Pose2D target_pose, 
         geometry_msgs::Twist target_vel);
+    
+    geometry_msgs::Twist positionApproachingControl(
+        geometry_msgs::Pose2D current_pose, 
+        geometry_msgs::Pose2D goal_pose,
+        ros::Time time);
         
     geometry_msgs::Twist collisionAvoidance(geometry_msgs::Twist cmd_vel);
        

@@ -1,0 +1,17 @@
+@startuml
+
+Ready : gotowy do pracy
+PathTracking : śledzenie trajektorii
+GoalPositionApproaching : stabilizacja w punkcie
+Finished : cel osiągnięty \n z zadaną dokładnością
+
+[*] -> Ready : uruchomienie węzła
+Ready --> PathTracking : nowy cel
+PathTracking --> PathTracking : nowy cel
+GoalPositionApproaching --> PathTracking : nowy cel
+Finished --> PathTracking : nowy cel
+PathTracking --> GoalPositionApproaching : upłynął czas \n realizacji trajektorii
+GoalPositionApproaching --> Finished : osiągnięto cel \n z zadaną dokładnością
+Finished --> [*]
+
+@enduml

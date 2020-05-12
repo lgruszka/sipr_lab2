@@ -1,4 +1,4 @@
 <launch>
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find sipr_lab4_template)/launch/lab4.rviz" />
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find sipr_lab2)/launch/lab2.rviz" />
 </launch>
 
