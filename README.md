@@ -20,16 +20,6 @@ sudo apt install ros-melodic-p2os-urdf ros-melodic-p2os-launch
 sudo apt install ros-melodic-joint-state-publisher-gui
 ```
 
-<!-- ``` 
-sudo apt install ros-kinetic-teleop-twist-keyboard 
-``` -->
-<!-- 
-Instalacja rozszerzenia [CodeTour](https://marketplace.visualstudio.com/items?itemName=vsls-contrib.codetour) do środowiska VS Code:
-
-```
-code --install-extension vsls-contrib.codetour
-``` -->
-
 ### Przygotowanie przestrzeni roboczej
 
 Wchodzimy do podkatalogu `src` przestrzeni roboczej `sipr_ws`:
@@ -341,8 +331,6 @@ Jeżeli węzeł `sipr_lab2_node` został poprawnie uruchomiony, to po zadaniu pu
 Po zaimplementowaniu wszystkich algorytmów, robot powinien podążąć za czerwoną strzałką.
 
 #### Obsługa `joint_state_publisher_gui`
-
-<!-- W środowisku ROS model robota, czyli jego geometrię, kinematykę i własności dynamiczne, definiuje się w plikach URDF.  -->
 
 W tym ćwiczeniu wykorzystamy model robota mobilnego Pioneer 3dx.
 
