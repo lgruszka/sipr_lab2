@@ -6,6 +6,16 @@ Instrukcja przygotowania środowiska pracy zakłada, że wykonane zostało ćwic
 
 ### Instalacja brakujących pakietów
 
+Przed instalacją nowych pakietów z repozytorium Ubuntu należy zainstalować ewentualne aktualizacje. W konsoli `yakuake` (`F12`) wykonujemy polecenia:
+
+```
+sudo apt update
+```
+
+```
+sudo apt upgrade
+````
+
 Instalacja brakujących pakietów ROS-a z repozytorium Ubuntu (Ubuntu 18.04, ROS melodic) wymaga uruchomienia w konsoli następującego polecenia (wciśnij `F12`, aby otworzyć terminal `yakuake`):
 
 ```
