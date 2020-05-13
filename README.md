@@ -41,7 +41,7 @@ cd ~/sipr_ws/src
 Ściągamy kod źródłowy pakietu `sipr_lab2` przygotowanego jako szablon do dalszego wykonania instrukcji:
 
 ```
-git clone https://bitbucket.org/maciej_przybylski/sipr_lab2
+git clone https://bitbucket.org/rrgwut/sipr_lab2
 ```
 
 Wywołujemy budowanie przestrzeni roboczej `sipr_ws`:
