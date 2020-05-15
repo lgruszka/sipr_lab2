@@ -30,6 +30,12 @@ sudo apt install ros-melodic-p2os-urdf ros-melodic-p2os-launch
 sudo apt install ros-melodic-joint-state-publisher-gui
 ```
 
+Instalacja przydatnych wtyczek do VS Code:
+
+```
+code --install-extension goessner.mdmath
+```
+
 ### Przygotowanie przestrzeni roboczej
 
 Wchodzimy do podkatalogu `src` przestrzeni roboczej `sipr_ws`:
@@ -56,18 +62,19 @@ catkin_make -DCMAKE_BUILD_TYPE=Debug
 
 ### Uruchomienie środowiska VS Code
 
-Uruchamiamy VS Code w przestrzeni roboczej `sipr_ws`: 
+Uruchamiamy VS Code w przestrzeni roboczej `sipr_ws`:
 
 ```
 code ~/sipr_ws
 ```
 
+W VS Code zobaczymy zawartość całej przestrzeni roboczej `sipr_ws` w tym otwarte pliki z poprzednich ćwiczeń, które można zamknąć. W drzewie katalogów można zwinąć katalogi poprzednich ćwiczeń i rozwinąć katalog `sipr_lab2`, w którym znajdziemy tą instrukcję w pliku [`README.md`](./README.md).
+
 #### Konfiguracji debuggera w VS Code
 
 W VS Code należy wcisnąć skrót przycisk `Ctrl+Shift+D`, który przeniesienie nas z widoku drzewa katalogów do widoku `Uruchamiania`.
 
-1. Jeżeli debugger **nie był jeszcze konfigurowany** należy wybrać opcję `create a launch.json file`, a dalej opcję `C++ (GDB/LLDB)`.
-
+1. Jeżeli debugger **nie był jeszcze konfigurowany** należy wybrać opcję `create a launch.json file`, a dalej opcję `C++ (GDB/LLDB)`. ![vscode debug create](doc/figures/vscode_debug_create.gif)
 2. Jeżeli debugger **był już konfigurowany** należy wcisnąć przycisk `Open launch.json` (ten z trybikiem), a następnie w otwartym pliku [`.vscode/launch.json`](`.vscode/launch.json`) kliknąć przycisk `Add configuration...`, który pojawia się w dolnym prawym rogu okna edycji, a następnie wybieramy `C/C++: (gdb) Launch`.
 
 W pliku [`.vscode/launch.json`](`.vscode/launch.json`) zmieniamy następujące linie:
@@ -82,6 +89,8 @@ W pliku [`.vscode/launch.json`](`.vscode/launch.json`) zmieniamy następujące l
 
 Na koniec możemy sprawdzić czy węzeł `sipr_lab2_node` – który jest wstępnie zaprogramowany – działa. W tym celu wciskamy `F5` lub przycisk z zieloną strzałką z widoku uruchamiania (`Ctrl+Shift+D`) upewniając się, że na liście rozwijanej wybrana jest opcja `(gdb) sipr_lab2_node`.
 
+![vscode debug run](doc/figures/vscode_debug_run.gif)
+
 W tym momencie nie jest uruchomiony `ROS master`, więc węzeł `sipr_lab2_node` w terminalu (u dołu okna VS Code) pokaże błąd.
 
 > Uruchomiony węzeł można zamknąć skrótem klawiszowym `Shift+F5` lub wciskając czerwony kwadrat z panelu debugowania.
@@ -92,12 +101,14 @@ W tym momencie nie jest uruchomiony `ROS master`, więc węzeł `sipr_lab2_node`
 >
 > W drzewie katalogów należy:
 >
->* odnaleźć plik [`sipr_ws/src/sipr_lab2/README.md`](README.md),
+>* odnaleźć plik [`sipr_ws/src/sipr_lab2/README.md`](./README.md),
 >* wcisnąć skrót `Ctrl+Shift+P`,
 >* rozpocząć pisanie polecenia `markdown preview`
 >* i wybrać opcję `Markdown: Open Locked Preview to the Side`.
 >
-> Edytor z kodem pliku README.md można zamknąć.
+> Edytor z kodem pliku [README.md](./README.md) można zamknąć.
+>
+> ![image](doc/figures/vscode_readme_preview.gif)
 
 ### Kinematyka robota mobilnego o napędzie różnicowym
 
