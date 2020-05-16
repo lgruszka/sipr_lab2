@@ -319,7 +319,11 @@ Najpierw uruchomimy symulację. W terminalu `yakuake` (`F12`) włączamy skrypt 
 roslaunch sipr_lab2 stage_box.launch
 ```
 
+![roslaunch_stage_box](doc/figures/roslaunch_stage_box.gif)
+
 Następnie z poziomu VS Code uruchamiamy węzeł `sipr_lab2_node` za pomocą klawisza `F5`.
+
+![](doc/figures/debug_sipr_lab2_node.gif)
 
 #### Obsługa Stage'a
 
@@ -329,6 +333,8 @@ Odszukujemy okno symulatora Stage, w którym:
 * przytrzymanie lewego przycisku myszy na planszy pozwala przesunąć widok,
 * kliknięcie i przytrzymanie lewego przycisku myszy na modelu robota lub kwadratowej przeszkody pozwala ja przesunąć.
 
+![stage](doc/figures/stage.gif)
+
 #### Obsługa RViz'a
 
 Odszukujemy okno programu `rviz`, w którym:
@@ -337,11 +343,15 @@ Odszukujemy okno programu `rviz`, w którym:
 * przytrzymanie lewego przycisku myszy na planszy pozwala obrócić widok,
 * środkowy przycisk myszy pozwala na przesuwanie ekranu.
 
+![rviz](doc/figures/rviz.gif)
+
 RViz udostępnia GUI dla podstawowych algorytmów. W tym ćwiczeniu wykorzystamy funkcję zadawania celu. W tym celu należy kliknąć przycisk `2D Nav Goal` z górnego paska narzędzi, a następnie:
 
 * wcisnąć i przytrzymać lewy przycisk myszy w punkcie, który ma być celem,
 * z wciśniętym lewym przyciskiem myszy wykonać ruch myszą w celu ustawienia docelowej orientacji robota,
 * zwolnić przycisk myszy.
+
+![2d_nav_goal](doc/figures/2d_nav_goal.gif)
 
 Jeżeli węzeł `sipr_lab2_node` został poprawnie uruchomiony, to po zadaniu punktu docelowego powinny pojawić się:
 
@@ -349,13 +359,15 @@ Jeżeli węzeł `sipr_lab2_node` został poprawnie uruchomiony, to po zadaniu pu
 * konfiguracja zadana dla danej chwili (czerwona strzałka),
 * trajektoria (zielona linia).
 
-Po zaimplementowaniu wszystkich algorytmów, robot powinien podążąć za czerwoną strzałką.
+Po zaimplementowaniu wszystkich algorytmów, robot powinien podążać za czerwoną strzałką.
 
 #### Obsługa `joint_state_publisher_gui`
 
 W tym ćwiczeniu wykorzystamy model robota mobilnego Pioneer 3dx.
 
 W pakiecie `p2os_urdf` (zainstalowaliśmy go za pomocą `apt`) znajduje się model tego robota (plik `urdf`), dzięki czemu robot jest wyświetlany w programie `rviz`. Ponieważ Pioneer 3dx jest robotem o napędzie różnicowym, będzie posiadał dwa złącza obrotowe, czyli osie kół lewego i prawego. Program `rviz` jest w stanie wyświetlać obrót tych złączy (pokazać ruch kół).
+
+![joint_state_publisher_gui](doc/figures/joint_state_publisher_gui.gif)
 
 Obliczenie położenia koła lewego i prawego w zależności od pokonanej drogi i aktualnej prędkości jest przedmiotem następnego zadania. Jednak, żeby lepiej zrozumieć jaki ma być efekt możemy ręcznie obracać kołami z poziomu programu `joint_state_publisher_gui`.
 
@@ -385,7 +397,7 @@ W każdym obrocie głównej pętli programu `sipr_lab2_node` ([`sipr_lab2_node.c
 
 ![Maszyna stanu](doc/figures/state_machine.png)
 
-Zadanie nowego celu z poziomu programu `rviz` za pomocą funkcji `2D Nav Goal` powoduje zrestartowanie odtwarzanie trajektorii dla nowego celu oraz przejście do stanu `PathTracking`.
+Zadanie nowego celu z poziomu programu `rviz` za pomocą funkcji `2D Nav Goal` powoduje zrestartowanie odtwarzania trajektorii dla nowego celu oraz przejście do stanu `PathTracking`.
 
 Kolejne zadania wymagają zaimplementowania odpowiednich wzorów matematycznych w metodach klasy `RobotController`:
 
@@ -442,7 +454,7 @@ Obiekty typu `geometry_msgs::Pose2D` mają pola:
 
 **Uwaga:** gdziekolwiek we wzorach pojawia się różnica kątów $\theta_t - \theta$ należy użyć funkcji `distanceTheta(current_pose, target_pose)`, w przeciwnym wypadku należy samodzielnie zadbać o to, żeby różnica kątów była z przedziału $<-\pi,\pi>$ i reprezentowała najkrótszy obrót między dwiema orientacjami robota.
 
-Potrzebna będzie również funkcja `double sgn(double)`, które oblicza wynik funkcji signum.
+Potrzebna będzie również funkcja `sgn()`, które oblicza wynik funkcji signum – jest ona zaimplementowana w pliku [`RobotController.cpp` (linia 9)](src/sipr_lab2/RobotController.cpp#L9).
 
 ### 4. Implementacja algorytmu stabilizacji w punkcie
 

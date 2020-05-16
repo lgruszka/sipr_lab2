@@ -4,7 +4,7 @@
 
   <node name="map_server" pkg="map_server" type="map_server" args="$(find sipr_lab2)/worlds/box.png 0.01" />
   
-  <node pkg="tf" type="static_transform_publisher" name="map_marker_link"
+  <node pkg="tf" type="static_transform_publisher" name="map_odom"
       args="2 2 0 0 0 0 map odom 10" />
 
   <node pkg="stage_ros" type="stageros" name="stageros" args="$(find sipr_lab2)/worlds/box.world" respawn="false" >
