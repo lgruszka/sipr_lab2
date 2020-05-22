@@ -15,6 +15,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf
 )
 
+## Declare a catkin package
+catkin_package()
+
 ###########
 ## Build ##
 ###########
