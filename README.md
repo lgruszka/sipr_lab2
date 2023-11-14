@@ -16,18 +16,10 @@ sudo apt update
 sudo apt upgrade
 ```
 
-Instalacja brakujących pakietów ROS-a z repozytorium Ubuntu (Ubuntu 18.04, ROS melodic) wymaga uruchomienia w konsoli następującego polecenia (wciśnij `F12`, aby otworzyć terminal `yakuake`):
+Instalacja brakujących pakietów ROS-a z repozytorium Ubuntu (Ubuntu 20.04, ROS noetic) wymaga uruchomienia w konsoli następującego polecenia (wciśnij `F12`, aby otworzyć terminal `yakuake`):
 
 ```
-sudo apt install ros-melodic-map-server ros-melodic-stage-ros
-```
-
-```
-sudo apt install ros-melodic-p2os-urdf ros-melodic-p2os-launch
-```
-
-```
-sudo apt install ros-melodic-joint-state-publisher-gui
+sudo apt install ros-noetic-map-server ros-noetic-stage-ros ros-noetic-p2os-urdf ros-noetic-p2os-launch ros-noetic-joint-state-publisher-gui
 ```
 
 Instalacja przydatnych wtyczek do VS Code:

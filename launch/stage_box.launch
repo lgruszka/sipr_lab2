@@ -5,7 +5,7 @@
   <node name="map_server" pkg="map_server" type="map_server" args="$(find sipr_lab2)/worlds/box.png 0.01" />
   
   <node pkg="tf" type="static_transform_publisher" name="map_odom"
-      args="2 2 0 0 0 0 map odom 10" />
+      args="0 0 0 0 0 0 map odom 10" />
 
   <node pkg="stage_ros" type="stageros" name="stageros" args="$(find sipr_lab2)/worlds/box.world" respawn="false" >
     <param name="base_watchdog_timeout" value="0.2"/>
@@ -15,7 +15,7 @@
 
   <node pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" name="joint_state_publisher_gui" respawn="false" >
   </node>
-  <include file="$(find p2os_urdf)/launch/pioneer3dx_urdf.launch" />
+  <include file="$(find sipr_lab2)/launch/pioneer3dx_urdf.launch" />
   <include file="$(find sipr_lab2)/launch/rviz.launch" />
 
 
