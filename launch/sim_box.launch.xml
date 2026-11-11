@@ -1,0 +1,35 @@
+<launch>
+
+  <!-- Symulator MVSim: robot Pioneer 3-DX ze skanerem laserowym na planszy box -->
+  <node pkg="mvsim" exec="mvsim_node" name="mvsim" output="screen">
+    <param name="world_file" value="$(find-pkg-share sipr_lab2)/worlds/box.world.xml"/>
+    <!-- czas symulacji = czas rzeczywisty (bez /clock i use_sim_time) -->
+    <param name="disable_sim_time_clock" value="true"/>
+    <!-- transformacje map -> odom -> base_link publikują węzły poniżej -->
+    <param name="do_fake_localization" value="false"/>
+    <param name="publish_tf_odom2baselink" value="false"/>
+  </node>
+
+  <node pkg="tf2_ros" exec="static_transform_publisher" name="map_odom"
+        args="--frame-id map --child-frame-id odom"/>
+
+  <!-- Transformacja odom -> base_link z rzeczywistej pozycji robota w symulatorze
+       (odometria MVSim zawiera losowe błędy) -->
+  <node pkg="odom_to_tf_ros2" exec="odom_to_tf" name="ground_truth_tf">
+    <param name="odom_topic" value="/base_pose_ground_truth"/>
+    <param name="frame_id" value="odom"/>
+    <param name="child_frame_id" value="base_link"/>
+    <param name="use_original_odom_timestamp" value="true"/>
+  </node>
+
+  <!-- Stan złączy robota: suwaki dla wszystkich złączy; położenia kół
+       wyliczone w węźle sipr_lab2_node (kanał wheel_joint_states)
+       nadpisują wartości suwaków -->
+  <node pkg="joint_state_publisher_gui" exec="joint_state_publisher_gui" name="joint_state_publisher_gui">
+    <param name="source_list" value="['wheel_joint_states']"/>
+  </node>
+
+  <include file="$(find-pkg-share sipr_lab2)/launch/pioneer3dx_urdf.launch.xml"/>
+  <include file="$(find-pkg-share sipr_lab2)/launch/rviz.launch.xml"/>
+
+</launch>

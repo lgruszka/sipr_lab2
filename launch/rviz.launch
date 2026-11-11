@@ -1,4 +1,0 @@
-<launch>
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find sipr_lab2)/launch/lab2.rviz" />
-</launch>
-

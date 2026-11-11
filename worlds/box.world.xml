@@ -1,0 +1,86 @@
+<!--
+  Świat symulatora MVSim: prostokątna plansza 14 x 10 m (mapa box.png),
+  robot Pioneer 3-DX ze skanerem laserowym i kwadratowa przeszkoda.
+  Robot startuje w początku układu "map", a narożnik planszy leży w punkcie
+  (-2, -2) - patrz box.yaml.
+-->
+<mvsim_world version="1.0">
+	<simul_timestep>0</simul_timestep>
+
+	<!-- Okno symulatora: widok z góry na całą planszę -->
+	<gui>
+		<win_w>1300</win_w>
+		<win_h>820</win_h>
+		<start_maximized>false</start_maximized>
+		<ortho>false</ortho>
+		<cam_point_to>3.1 3 0</cam_point_to>
+		<cam_distance>11</cam_distance>
+		<cam_azimuth>-90</cam_azimuth>
+		<cam_elevation>90</cam_elevation>
+		<show_forces>false</show_forces>
+		<refresh_fps>30</refresh_fps>
+	</gui>
+
+	<!-- Ściany planszy: ta sama mapa, którą wyświetla RViz -->
+	<element class="occupancy_grid">
+		<file>box.yaml</file>
+	</element>
+
+	<!-- Robot Pioneer 3-DX -->
+	<vehicle:class name="pioneer3dx">
+		<dynamics class="differential">
+			<!-- koła: promień r = 0.09 m, rozstaw b = 0.316 m -->
+			<l_wheel pos="0.0  0.158" mass="1.0" width="0.037" diameter="0.18" />
+			<r_wheel pos="0.0 -0.158" mass="1.0" width="0.037" diameter="0.18" />
+			<chassis mass="9.0" zmin="0.06" zmax="0.245" color="#cc0000">
+				<shape>
+					<pt> 0.19  0.10</pt>
+					<pt> 0.15  0.135</pt>
+					<pt>-0.21  0.135</pt>
+					<pt>-0.26  0.09</pt>
+					<pt>-0.26 -0.09</pt>
+					<pt>-0.21 -0.135</pt>
+					<pt> 0.15 -0.135</pt>
+					<pt> 0.19 -0.10</pt>
+				</shape>
+			</chassis>
+			<!-- robot realizuje zadaną prędkość (cmd_vel) bez opóźnień -->
+			<controller class="twist_ideal">
+				<V>0.0</V><W>0</W>
+			</controller>
+		</dynamics>
+	</vehicle:class>
+
+	<vehicle name="pioneer" class="pioneer3dx">
+		<init_pose>0 0 0</init_pose>  <!-- x [m], y [m], kąt [deg] -->
+
+		<!-- skaner laserowy SICK LMS200: 180 stopni, 361 pomiarów, zasięg 8 m -->
+		<sensor class="laser" name="base_scan">
+			<pose_3d>0.0 0.0 0.3 0.0 0.0 0.0</pose_3d>
+			<fov_degrees>180</fov_degrees>
+			<nrays>361</nrays>
+			<max_range>8.0</max_range>
+			<sensor_period>0.1</sensor_period>
+			<range_std_noise>0.005</range_std_noise>
+			<angle_std_noise_deg>0.0</angle_std_noise_deg>
+			<viz_visiblePoints>false</viz_visiblePoints>
+			<viz_visibleLines>false</viz_visibleLines>
+			<viz_visiblePlane>true</viz_visiblePlane>
+			<viz_planeColor>#0000ff20</viz_planeColor>
+		</sensor>
+	</vehicle>
+
+	<!-- Kwadratowa przeszkoda 0.5 x 0.5 m -->
+	<block>
+		<init_pose>1 -1 0</init_pose>
+		<mass>20</mass>
+		<color>#000000</color>
+		<zmin>0</zmin> <zmax>0.5</zmax>
+		<shape>
+			<pt>-0.25 -0.25</pt>
+			<pt>-0.25  0.25</pt>
+			<pt> 0.25  0.25</pt>
+			<pt> 0.25 -0.25</pt>
+		</shape>
+	</block>
+</mvsim_world>

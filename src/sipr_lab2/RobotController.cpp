@@ -1,9 +1,13 @@
-
 #include "sipr_lab2/RobotController.h"
 
 #include <cmath>
 
 #include <angles/angles.h>
+#include <tf2/exceptions.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/LinearMath/Transform.hpp>
+#include <tf2/utils.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 
 double sgn(double v)
@@ -20,7 +24,14 @@ double sgn(double v)
     return 0.0;
 }
 
-RobotController::RobotController(Config const& cfg) : nh_("~"), cfg_(cfg) 
+geometry_msgs::msg::Quaternion createQuaternionMsgFromYaw(double yaw)
+{
+    tf2::Quaternion q;
+    q.setRPY(0.0, 0.0, yaw);
+    return tf2::toMsg(q);
+}
+
+RobotController::RobotController(Config const& cfg) : rclcpp::Node("sipr_lab2_node"), cfg_(cfg)
 {
     joint_state_msg_.header.frame_id = "base_link";
     joint_state_msg_.name.resize(2);
@@ -48,18 +59,29 @@ RobotController::RobotController(Config const& cfg) : nh_("~"), cfg_(cfg)
     computePathTraversalTime();
     
     controller_state_ = ControllerState::Ready;
-    ROS_INFO("Robot controller state: %d", int(controller_state_));
+    path_tracking_start_time = now();
+    RCLCPP_INFO(get_logger(), "Robot controller state: %d", int(controller_state_));
     
-    sub_goal_pose_ = nh_.subscribe(cfg_.robot_namespace+"/goal", 1,
-            &RobotController::goalPoseCallback, this);
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
     
-    sub_laser_scan_ = nh_.subscribe(cfg_.robot_namespace+"/base_scan", 1,
-            &RobotController::laserScanCallback, this);
+    sub_goal_pose_ = create_subscription<geometry_msgs::msg::PoseStamped>(
+            cfg_.robot_namespace+"/goal", 1,
+            [this](geometry_msgs::msg::PoseStamped const& msg) {goalPoseCallback(msg);});
 
-    pub_cmd_vel_ = nh_.advertise<geometry_msgs::Twist>(cfg_.robot_namespace+"/cmd_vel", 1);
-    pub_path_ = nh_.advertise<nav_msgs::Path>(cfg_.robot_namespace+"/path", 1);
-    pub_next_pose_ = nh_.advertise<geometry_msgs::PoseStamped>(cfg_.robot_namespace+"/next_pose", 1);
-    pub_joint_state_ = nh_.advertise<sensor_msgs::JointState>(cfg_.robot_namespace+"/joint_states", 1);
+    sub_laser_scan_ = create_subscription<sensor_msgs::msg::LaserScan>(
+            cfg_.robot_namespace+"/base_scan", rclcpp::SensorDataQoS(),
+            [this](sensor_msgs::msg::LaserScan const& msg) {laserScanCallback(msg);});
+
+    pub_cmd_vel_ = create_publisher<geometry_msgs::msg::Twist>(cfg_.robot_namespace+"/cmd_vel", 1);
+    pub_path_ = create_publisher<nav_msgs::msg::Path>(cfg_.robot_namespace+"/path", 1);
+    pub_next_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>(cfg_.robot_namespace+"/next_pose", 1);
+    pub_joint_state_ = create_publisher<sensor_msgs::msg::JointState>(cfg_.robot_namespace+"/wheel_joint_states", 1);
+
+    // Wywoływanie metody control() co cfg_.time_step sekund
+    control_timer_ = create_wall_timer(
+            std::chrono::duration<double>(cfg_.time_step),
+            [this]() {control();});
 }
 
 RobotController::~RobotController() 
@@ -67,50 +89,47 @@ RobotController::~RobotController()
     
 }
 
-geometry_msgs::Pose2D RobotController::getRobotGlobalPose(ros::Time time_now)
+Pose2D RobotController::getRobotGlobalPose(rclcpp::Time time_now)
 {
-    geometry_msgs::Pose2D pose;
+    Pose2D pose;
     
     //Pobranie transformacji między układem globalnym a układem robota
-    tf::StampedTransform transform_box_robot;
     try 
     {
-        ros::Duration timeout(cfg_.time_step/2.0);
+        rclcpp::Duration timeout = rclcpp::Duration::from_seconds(cfg_.time_step/2.0);
         
-        tf_.waitForTransform(cfg_.globale_frame_id, cfg_.robot_frame_id,
+        geometry_msgs::msg::TransformStamped transform_box_robot = tf_buffer_->lookupTransform(
+                cfg_.globale_frame_id, cfg_.robot_frame_id,
                 time_now, timeout);
         
-        tf_.lookupTransform(cfg_.globale_frame_id, cfg_.robot_frame_id,
-                time_now, transform_box_robot);
+        pose.x = transform_box_robot.transform.translation.x;
+        pose.y = transform_box_robot.transform.translation.y;
+        pose.theta = tf2::getYaw(transform_box_robot.transform.rotation);
         
-        pose.x = transform_box_robot.getOrigin().getX();
-        pose.y = transform_box_robot.getOrigin().getY();
-        pose.theta = tf::getYaw(transform_box_robot.getRotation());
-        
-    } catch (tf::TransformException& ex) 
+    } catch (tf2::TransformException& ex)
     {
-        ROS_WARN("TF exception:\n%s", ex.what());
+        RCLCPP_WARN(get_logger(), "TF exception:\n%s", ex.what());
     }
     
     return pose;
 }
 
-void RobotController::laserScanCallback(sensor_msgs::LaserScan const& laser_msg)
+void RobotController::laserScanCallback(sensor_msgs::msg::LaserScan const& laser_msg)
 { 
     laser_msg_ = laser_msg;
 }
 
-void RobotController::goalPoseCallback(geometry_msgs::PoseStamped const& goal_pose_msg)
+void RobotController::goalPoseCallback(geometry_msgs::msg::PoseStamped const& goal_pose_msg)
 {
     goal_pose_.x = goal_pose_msg.pose.position.x;
     goal_pose_.y = goal_pose_msg.pose.position.y;
-    goal_pose_.theta = tf::getYaw(goal_pose_msg.pose.orientation);
+    goal_pose_.theta = tf2::getYaw(goal_pose_msg.pose.orientation);
     
+    path_tracking_start_time = now();
     publishPathMsg();
     
     controller_state_ = ControllerState::PathTracking;
-    path_tracking_start_time = ros::Time::now();
-    ROS_INFO("Robot controller state: %d", int(controller_state_));
+    RCLCPP_INFO(get_logger(), "Robot controller state: %d", int(controller_state_));
 }
 
 void RobotController::computePathTraversalTime()
@@ -118,11 +137,11 @@ void RobotController::computePathTraversalTime()
     double distance = 0.0;
     int steps = 1000;
     
-    geometry_msgs::Point p1 = getPathPoint(0.0);
+    geometry_msgs::msg::Point p1 = getPathPoint(0.0);
     
     for(int i=1; i<=steps; i++)
     {
-        geometry_msgs::Point p2 = getPathPoint( double(i)/steps );
+        geometry_msgs::msg::Point p2 = getPathPoint( double(i)/steps );
         
         distance += distanceXY(p1, p2);
         
@@ -131,66 +150,67 @@ void RobotController::computePathTraversalTime()
     
     path_traversal_time = distance / cfg_.path_tracking_velocity;
     
-    ROS_INFO("Estimated path traversal time: %f", path_traversal_time);
+    RCLCPP_INFO(get_logger(), "Estimated path traversal time: %f", path_traversal_time);
 }
 
 void RobotController::publishPathMsg()
 {
-    nav_msgs::Path path;
+    nav_msgs::msg::Path path;
     path.header.frame_id = cfg_.globale_frame_id;
     path.header.stamp = path_tracking_start_time;
     
-    geometry_msgs::PoseStamped pose;
+    geometry_msgs::msg::PoseStamped pose;
     pose.header.frame_id = cfg_.globale_frame_id;
     
     for(double time = 0.0; time < path_traversal_time; time+=cfg_.time_step)
     {        
-        pose.header.stamp = path_tracking_start_time + ros::Duration(time);
-        geometry_msgs::Pose2D pose_2d = getPathPose(pose.header.stamp);
+        rclcpp::Time pose_time = path_tracking_start_time + rclcpp::Duration::from_seconds(time);
+        pose.header.stamp = pose_time;
+        Pose2D pose_2d = getPathPose(pose_time);
         pose.pose.position.x = pose_2d.x;
         pose.pose.position.y = pose_2d.y;
-        pose.pose.orientation = tf::createQuaternionMsgFromYaw(pose_2d.theta);
+        pose.pose.orientation = createQuaternionMsgFromYaw(pose_2d.theta);
         
         path.poses.push_back(pose);
     }
     
-    pub_path_.publish(path);
+    pub_path_->publish(path);
 }
 
 
-void RobotController::publishNextPoseMsg(geometry_msgs::Pose2D pose_2d)
+void RobotController::publishNextPoseMsg(Pose2D pose_2d)
 {
-    geometry_msgs::PoseStamped pose;
+    geometry_msgs::msg::PoseStamped pose;
     pose.header.frame_id = cfg_.globale_frame_id;
-    pose.header.stamp = ros::Time::now();
+    pose.header.stamp = now();
     pose.pose.position.x = pose_2d.x;
     pose.pose.position.y = pose_2d.y;
-    pose.pose.orientation = tf::createQuaternionMsgFromYaw(pose_2d.theta);
+    pose.pose.orientation = createQuaternionMsgFromYaw(pose_2d.theta);
     
-    pub_next_pose_.publish(pose);
+    pub_next_pose_->publish(pose);
 }
 
 
-double RobotController::distanceXY(geometry_msgs::Point p1, geometry_msgs::Point p2)
+double RobotController::distanceXY(geometry_msgs::msg::Point p1, geometry_msgs::msg::Point p2)
 {
     return std::hypot(p2.x - p1.x, p2.y - p1.y);
 }
 
-double RobotController::distanceXY(geometry_msgs::Pose2D p1, geometry_msgs::Pose2D p2)
+double RobotController::distanceXY(Pose2D p1, Pose2D p2)
 {
     return std::hypot(p2.x - p1.x, p2.y - p1.y);
 }
 
-double RobotController::distanceTheta(geometry_msgs::Pose2D p1, geometry_msgs::Pose2D p2)
+double RobotController::distanceTheta(Pose2D p1, Pose2D p2)
 {    
     double angular_distance = angles::shortest_angular_distance(p1.theta, p2.theta); // najkrótsza odległość między kątami < -PI, PI >
     
     return angular_distance;
 }
 
-geometry_msgs::Point RobotController::getPathPoint(double t)
+geometry_msgs::msg::Point RobotController::getPathPoint(double t)
 {
-    geometry_msgs::Point point;
+    geometry_msgs::msg::Point point;
     
     point.x = cfg_.path_scale * std::sin(t * 4.0 * M_PI);
     point.y = cfg_.path_scale * (std::sin(t / 2.0 * 4.0 * M_PI) + std::cos(2.0 * t * 4.0 * M_PI)/7.0);
@@ -198,82 +218,86 @@ geometry_msgs::Point RobotController::getPathPoint(double t)
     return point;    
 }
 
-geometry_msgs::Point RobotController::getPathPoint(ros::Time time)
+geometry_msgs::msg::Point RobotController::getPathPoint(rclcpp::Time time)
 {
-    ros::Duration d = (time - path_tracking_start_time);
-    double t = d.toSec() / path_traversal_time;
+    rclcpp::Duration d = (time - path_tracking_start_time);
+    double t = d.seconds() / path_traversal_time;
         
-    geometry_msgs::Point point = getPathPoint(t);
+    geometry_msgs::msg::Point point = getPathPoint(t);
         
     return point;    
 }
 
-geometry_msgs::Pose2D RobotController::getPathPose(ros::Time time_now)
+Pose2D RobotController::getPathPose(rclcpp::Time time_now)
 {
-    geometry_msgs::Point p1 = getPathPoint(time_now);
-    geometry_msgs::Point p2 = getPathPoint(time_now + ros::Duration(cfg_.time_step));
+    geometry_msgs::msg::Point p1 = getPathPoint(time_now);
+    geometry_msgs::msg::Point p2 = getPathPoint(time_now + rclcpp::Duration::from_seconds(cfg_.time_step));
     
-    tf::Transform pose_transform;
-    pose_transform.setOrigin(tf::Vector3(p1.x, p1.y, 0.0));
-    pose_transform.setRotation(tf::createQuaternionFromYaw(std::atan2(p2.y - p1.y, p2.x - p1.x)));
+    tf2::Transform pose_transform;
+    pose_transform.setOrigin(tf2::Vector3(p1.x, p1.y, 0.0));
+    tf2::Quaternion pose_rotation;
+    pose_rotation.setRPY(0.0, 0.0, std::atan2(p2.y - p1.y, p2.x - p1.x));
+    pose_transform.setRotation(pose_rotation);
     
-    tf::Transform goal_pose_transform;
-    goal_pose_transform.setOrigin(tf::Vector3(goal_pose_.x, goal_pose_.y, 0.0));
-    goal_pose_transform.setRotation(tf::createQuaternionFromYaw(goal_pose_.theta));
+    tf2::Transform goal_pose_transform;
+    goal_pose_transform.setOrigin(tf2::Vector3(goal_pose_.x, goal_pose_.y, 0.0));
+    tf2::Quaternion goal_rotation;
+    goal_rotation.setRPY(0.0, 0.0, goal_pose_.theta);
+    goal_pose_transform.setRotation(goal_rotation);
     
-    tf::Transform next_pose_shifted = goal_pose_transform * pose_transform;
+    tf2::Transform next_pose_shifted = goal_pose_transform * pose_transform;
     
-    geometry_msgs::Pose2D next_pose;
+    Pose2D next_pose;
     next_pose.x = next_pose_shifted.getOrigin().getX();
     next_pose.y = next_pose_shifted.getOrigin().getY();
-    next_pose.theta = tf::getYaw(next_pose_shifted.getRotation());
+    next_pose.theta = tf2::getYaw(next_pose_shifted.getRotation());
     
     return next_pose;
 }
 
 
-geometry_msgs::Twist RobotController::getPathVelocity(ros::Time time)
+geometry_msgs::msg::Twist RobotController::getPathVelocity(rclcpp::Time time)
 {
-    geometry_msgs::Pose2D pose = getPathPose(time);
-    geometry_msgs::Pose2D next_pose = getPathPose(time + ros::Duration(cfg_.time_step));
+    Pose2D pose = getPathPose(time);
+    Pose2D next_pose = getPathPose(time + rclcpp::Duration::from_seconds(cfg_.time_step));
     
-    geometry_msgs::Twist vel;
+    geometry_msgs::msg::Twist vel;
     vel.linear.x = cfg_.path_tracking_velocity;
     vel.angular.z = distanceTheta(pose, next_pose) / cfg_.time_step;
     
     return vel;
 }
     
-bool RobotController::poseReached(geometry_msgs::Pose2D current_pose, 
-        geometry_msgs::Pose2D target_pose)
+bool RobotController::poseReached(Pose2D current_pose,
+        Pose2D target_pose)
 {    
     return (   std::abs(distanceXY(current_pose, target_pose)) < cfg_.pose_tolerance_xy 
             && std::abs(distanceTheta(current_pose, target_pose)) < cfg_.pose_tolerance_theta);
 }
 
-bool RobotController::pathTrackingTimeout(ros::Time time_now)
+bool RobotController::pathTrackingTimeout(rclcpp::Time time_now)
 {    
-    return (time_now > path_tracking_start_time + ros::Duration(path_traversal_time));
+    return (time_now > path_tracking_start_time + rclcpp::Duration::from_seconds(path_traversal_time));
 }
 
 void RobotController::control()
 {
-    ros::Time time_now = ros::Time::now();    
-    geometry_msgs::Pose2D current_pose = getRobotGlobalPose(time_now);
+    rclcpp::Time time_now = now();
+    Pose2D current_pose = getRobotGlobalPose(time_now);
             
-    geometry_msgs::Twist cmd_vel;
+    geometry_msgs::msg::Twist cmd_vel;
     
     if(controller_state_ == ControllerState::PathTracking)
     {
-        geometry_msgs::Pose2D target_pose = getPathPose(time_now);
-        geometry_msgs::Twist target_vel = getPathVelocity(time_now);
+        Pose2D target_pose = getPathPose(time_now);
+        geometry_msgs::msg::Twist target_vel = getPathVelocity(time_now);
         cmd_vel = pathTrackingControl(current_pose, target_pose, target_vel);
         publishNextPoseMsg(target_pose);
         
         if(pathTrackingTimeout(time_now))
         {
             controller_state_ = ControllerState::GoalPositionApproaching;
-            ROS_INFO("Robot controller state: %d", int(controller_state_));
+            RCLCPP_INFO(get_logger(), "Robot controller state: %d", int(controller_state_));
         }
     }
     else if(controller_state_ == ControllerState::GoalPositionApproaching)
@@ -284,20 +308,20 @@ void RobotController::control()
         if(poseReached(current_pose, goal_pose_))
         {
             controller_state_ = ControllerState::Finished;
-            ROS_INFO("Robot controller state: %d", int(controller_state_));
+            RCLCPP_INFO(get_logger(), "Robot controller state: %d", int(controller_state_));
         }
     }
 
-    geometry_msgs::Twist safe_cmd_vel = collisionAvoidance(cmd_vel); 
+    geometry_msgs::msg::Twist safe_cmd_vel = collisionAvoidance(cmd_vel);
 
     publishJointState(safe_cmd_vel);
 
-    pub_cmd_vel_.publish(safe_cmd_vel);
+    pub_cmd_vel_->publish(safe_cmd_vel);
     
 }
 
 // 2. Obliczenie prędkości kół
-void RobotController::publishJointState(geometry_msgs::Twist cmd_vel)
+void RobotController::publishJointState(geometry_msgs::msg::Twist cmd_vel)
 {
     double left_wheel_angular_velocity = 0.0;
     double right_wheel_angular_velocity = 0.0;
@@ -305,22 +329,23 @@ void RobotController::publishJointState(geometry_msgs::Twist cmd_vel)
     // left_wheel_angular_velocity = ?? ; // rad/s
     // right_wheel_angular_velocity = ?? ; // rad/s
 
+    joint_state_msg_.header.stamp = now();
     joint_state_msg_.velocity[0] = left_wheel_angular_velocity;
     joint_state_msg_.velocity[1] = right_wheel_angular_velocity;
 
     joint_state_msg_.position[0] += left_wheel_angular_velocity * cfg_.time_step;
     joint_state_msg_.position[1] += right_wheel_angular_velocity * cfg_.time_step;
         
-    pub_joint_state_.publish(joint_state_msg_);
+    pub_joint_state_->publish(joint_state_msg_);
 }
 
 // 3. Implementacja algorytmu śledzenia trajektorii
-geometry_msgs::Twist RobotController::pathTrackingControl(
-    geometry_msgs::Pose2D current_pose, 
-    geometry_msgs::Pose2D target_pose, 
-    geometry_msgs::Twist target_vel)
+geometry_msgs::msg::Twist RobotController::pathTrackingControl(
+    Pose2D current_pose,
+    Pose2D target_pose,
+    geometry_msgs::msg::Twist target_vel)
 {   
-    geometry_msgs::Twist cmd_vel;
+    geometry_msgs::msg::Twist cmd_vel;
 
 //    cmd_vel.linear.x = ?;
 //    cmd_vel.angular.z = ?;
@@ -329,14 +354,14 @@ geometry_msgs::Twist RobotController::pathTrackingControl(
 }
 
 // 4. Implementacja algorytmu stabilizacji w punkcie
-geometry_msgs::Twist RobotController::positionApproachingControl(
-        geometry_msgs::Pose2D current_pose, 
-        geometry_msgs::Pose2D target_pose,
-        ros::Time time_now)
+geometry_msgs::msg::Twist RobotController::positionApproachingControl(
+        Pose2D current_pose,
+        Pose2D target_pose,
+        rclcpp::Time time_now)
 {
-    geometry_msgs::Twist cmd_vel;
+    geometry_msgs::msg::Twist cmd_vel;
     
-    geometry_msgs::Twist starget_control;
+    geometry_msgs::msg::Twist starget_control;
     
 //    starget_control.linear.x = ?;
 
@@ -346,9 +371,9 @@ geometry_msgs::Twist RobotController::positionApproachingControl(
 }
 
 // 5. Implementacja algorytmu unikania kolizji
-geometry_msgs::Twist RobotController::collisionAvoidance(geometry_msgs::Twist cmd_vel)
+geometry_msgs::msg::Twist RobotController::collisionAvoidance(geometry_msgs::msg::Twist cmd_vel)
 {
-    geometry_msgs::Twist safe_cmd_vel = cmd_vel;
+    geometry_msgs::msg::Twist safe_cmd_vel = cmd_vel;
 
     for(int i=0; i<int(laser_msg_.ranges.size()); i++)
     {

@@ -1,0 +1,8 @@
+<launch>
+  <!-- Model robota Pioneer 3-DX: publikuje /robot_description oraz
+       transformacje TF między członami robota -->
+  <node pkg="robot_state_publisher" exec="robot_state_publisher" name="robot_state_publisher">
+    <param name="robot_description" value="$(command 'xacro $(find-pkg-share sipr_lab2)/urdf/pioneer3dx.urdf.xacro')" type="str"/>
+    <param name="publish_frequency" value="30.0"/>
+  </node>
+</launch>

@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<!--
+  Uproszczony model robota Pioneer 3-DX (bryły zamiast siatek pakietu p2os_urdf,
+  który nie jest dostępny w ROS 2). Nazwy złączy kół są takie same jak w p2os_urdf.
+  Wymiary kół (promień r = 0.09 m, rozstaw b = 0.316 m) odpowiadają wartościom
+  cfg_.r i cfg_.b w klasie RobotController.
+  Każdy człon ma jedną bryłę, bo RViz wyświetla wszystkie bryły członu
+  w kolorze pierwszej z nich.
+-->
+<robot name="pioneer3dx" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="wheel_radius" value="0.09"/>
+  <xacro:property name="wheel_separation" value="0.316"/>
+  <xacro:property name="wheel_width" value="0.037"/>
+  <xacro:property name="body_x" value="-0.045"/>
+
+  <material name="red"><color rgba="0.8 0.0 0.0 1.0"/></material>
+  <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+  <material name="yellow"><color rgba="0.95 0.75 0.1 1.0"/></material>
+  <material name="gray"><color rgba="0.5 0.5 0.5 1.0"/></material>
+  <material name="blue"><color rgba="0.1 0.2 0.8 1.0"/></material>
+
+  <!-- Bryła przymocowana na stałe do członu nadrzędnego -->
+  <xacro:macro name="fixed_part" params="name parent xyz material *geometry">
+    <link name="${name}">
+      <visual>
+        <xacro:insert_block name="geometry"/>
+        <material name="${material}"/>
+      </visual>
+    </link>
+    <joint name="${parent}_${name}_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${name}"/>
+      <origin xyz="${xyz}"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- Układ base_link: środek osi kół, na wysokości podłoża -->
+  <link name="base_link">
+    <!-- korpus -->
+    <visual>
+      <origin xyz="${body_x} 0 0.147"/>
+      <geometry><box size="0.39 0.27 0.175"/></geometry>
+      <material name="red"/>
+    </visual>
+  </link>
+
+  <xacro:fixed_part name="top_plate" parent="base_link" xyz="${body_x} 0 0.239" material="black">
+    <geometry><box size="0.44 0.38 0.01"/></geometry>
+  </xacro:fixed_part>
+
+  <!-- skaner laserowy (SICK LMS200) -->
+  <xacro:fixed_part name="laser" parent="base_link" xyz="0 0 0.339" material="blue">
+    <geometry><box size="0.156 0.155 0.19"/></geometry>
+  </xacro:fixed_part>
+
+  <!-- Koła napędowe z kołpakiem w kształcie poprzeczki, dzięki której widać obrót koła -->
+  <xacro:macro name="wheel" params="side reflect">
+    <link name="p3dx_${side}_wheel">
+      <visual>
+        <origin rpy="${pi/2} 0 0"/>
+        <geometry><cylinder radius="${wheel_radius}" length="${wheel_width}"/></geometry>
+        <material name="black"/>
+      </visual>
+    </link>
+    <joint name="base_${side}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="p3dx_${side}_wheel"/>
+      <origin xyz="0 ${reflect*wheel_separation/2} ${wheel_radius}"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+    <xacro:fixed_part name="p3dx_${side}_hubcap" parent="p3dx_${side}_wheel"
+                      xyz="0 ${reflect*(wheel_width/2 + 0.002)} 0" material="yellow">
+      <geometry><box size="0.15 0.004 0.03"/></geometry>
+    </xacro:fixed_part>
+  </xacro:macro>
+
+  <xacro:wheel side="left" reflect="1"/>
+  <xacro:wheel side="right" reflect="-1"/>
+
+  <!-- Kółko podporowe (obrotowy wspornik + kółko) -->
+  <link name="swivel">
+    <visual>
+      <origin xyz="-0.015 0 0.0"/>
+      <geometry><box size="0.04 0.03 0.03"/></geometry>
+      <material name="gray"/>
+    </visual>
+  </link>
+  <joint name="base_swivel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="swivel"/>
+    <origin xyz="-0.185 0 0.065"/>
+    <axis xyz="0 0 1"/>
+  </joint>
+
+  <link name="center_wheel">
+    <visual>
+      <origin rpy="${pi/2} 0 0"/>
+      <geometry><cylinder radius="0.0325" length="0.024"/></geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+  <joint name="swivel_hubcap_joint" type="continuous">
+    <parent link="swivel"/>
+    <child link="center_wheel"/>
+    <origin xyz="-0.03 0 -0.0325"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <xacro:fixed_part name="center_hubcap" parent="center_wheel" xyz="0 0.0135 0" material="yellow">
+    <geometry><box size="0.055 0.003 0.012"/></geometry>
+  </xacro:fixed_part>
+
+</robot>
